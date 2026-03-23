@@ -10,7 +10,7 @@ namespace WinFormsApp1
 {
     internal class WavFile
     {
-        public string riffChukkId;
+        public string riffChunkId;
         public int riffChunkSize;
         public string riffFormat;
         public string fmtChunkId;
@@ -25,48 +25,164 @@ namespace WinFormsApp1
         public string dataChunkId;
         public int dataChunkSize;
         public byte[] data;
-        List<short> leftChannel { get; set; } = new List<short>();
-        List<short> rightChannel { get; set; } = new List<short>();
+        public List<short> leftChannel { get; set; } = new List<short>();
+        public List<short> rightChannel { get; set; } = new List<short>();
+        double frameSize = 0.02;
+        double shift = 0.01;
+        int frameSamples;
+        int shiftSamples;
 
         public WavFile(string filePath)
         {
             using (var file = File.Open(filePath, FileMode.Open))
+            using (BinaryReader reader = new BinaryReader(file))
             {
-                BinaryReader reader = new BinaryReader(file);
-                riffChukkId = Encoding.ASCII.GetString(reader.ReadBytes(4));
+                riffChunkId = Encoding.ASCII.GetString(reader.ReadBytes(4));
                 riffChunkSize = reader.ReadInt32();
                 riffFormat = Encoding.ASCII.GetString(reader.ReadBytes(4));
-                string nextSection = Encoding.ASCII.GetString(reader.ReadBytes(4));
-                if (nextSection != "fmt ")
+
+                if (riffChunkId != "RIFF" || riffFormat != "WAVE")
                 {
-                    MessageBox.Show("Invalid WAV file format: 'fmt ' chunk not found.");
+                    MessageBox.Show("Wybrany plik nie jest prawidłowym plikiem WAV.");
+                    return;
                 }
-                fmtChunkId = nextSection;
-                fmtChunkSize = reader.ReadInt32();
-                audioFormat = reader.ReadInt16();
-                numChannels = reader.ReadInt16();
-                samplePerSecond = reader.ReadInt32();
-                timeStep = 1.0 / samplePerSecond;
-                avgBytesPerSec = reader.ReadInt32();
-                blockAlign = reader.ReadInt16();
-                bitsPerSample = reader.ReadInt16();
-                nextSection = Encoding.ASCII.GetString(reader.ReadBytes(4));
-                if (nextSection != "data")
+
+                bool fmtFound = false;
+                bool dataFound = false;
+
+                while (reader.BaseStream.Position < reader.BaseStream.Length)
                 {
-                    MessageBox.Show("Invalid WAV file format: 'data' chunk not found.");
+                    string chunkId = Encoding.ASCII.GetString(reader.ReadBytes(4));
+                    int chunkSize = reader.ReadInt32();
+
+                    if (chunkId == "fmt ")
+                    {
+                        fmtChunkId = chunkId;
+                        fmtChunkSize = chunkSize;
+                        audioFormat = reader.ReadInt16();
+                        numChannels = reader.ReadInt16();
+                        samplePerSecond = reader.ReadInt32();
+                        avgBytesPerSec = reader.ReadInt32();
+                        blockAlign = reader.ReadInt16();
+                        bitsPerSample = reader.ReadInt16();
+                        timeStep = 1.0 / samplePerSecond;
+
+                        int extraBytes = chunkSize - 16;
+                        if (extraBytes > 0)
+                        {
+                            reader.BaseStream.Seek(extraBytes, SeekOrigin.Current);
+                        }
+                        fmtFound = true;
+                    }
+                    else if (chunkId == "data")
+                    {
+                        dataChunkId = chunkId;
+                        dataChunkSize = chunkSize;
+                        data = reader.ReadBytes(chunkSize);
+                        dataFound = true;
+                        break;
+                    }
+                    else
+                    {
+                        reader.BaseStream.Seek(chunkSize, SeekOrigin.Current);
+                    }
                 }
-                dataChunkId = nextSection;
-                dataChunkSize = reader.ReadInt32();
-                data = reader.ReadBytes(dataChunkSize);
-                for (int i = 0; i < data.Length; i += 4)
+
+                if (!fmtFound || !dataFound)
+                {
+                    MessageBox.Show("Nie znaleziono wymaganych sekcji (fmt/data). Plik może być uszkodzony.");
+                    return;
+                }
+                if (bitsPerSample != 16)
+                {
+                    MessageBox.Show("Ten program obsługuje tylko pliki 16-bitowe.");
+                    return;
+                }
+
+                int bytesPerSample = bitsPerSample / 8;
+                for (int i = 0; i < data.Length; i += blockAlign)
                 {
                     short leftSample = BitConverter.ToInt16(data, i);
                     leftChannel.Add(leftSample);
 
-                    short rightSample = BitConverter.ToInt16(data, i + 2);
-                    rightChannel.Add(rightSample);
+                    if (numChannels == 2)
+                    {
+                        short rightSample = BitConverter.ToInt16(data, i + bytesPerSample);
+                        rightChannel.Add(rightSample);
+                    }
+                    else
+                    { 
+                        rightChannel.Add(leftSample);
+                    }
                 }
+                frameSamples = (int)(frameSize * samplePerSecond);
+                shiftSamples = (int)(shift * samplePerSecond);
             }
+        }
+
+        public List<double> CalculateVolume()
+        {
+            List<double> volValues = new List<double>();
+
+            for (int i = 0; i <= leftChannel.Count - frameSamples; i += shiftSamples)
+            {
+                double ste = 0;
+                for (int j = 0; j < frameSamples; j++)
+                {
+                    double valueToAdd = (leftChannel[i + j] * leftChannel[i + j] + rightChannel[i + j] * rightChannel[i + j]) / 2;
+                    ste += valueToAdd;
+                }
+                ste /= frameSamples;
+                ste = Math.Sqrt(ste);
+                volValues.Add(ste);
+            }
+
+            return volValues;
+        }
+
+        public List<double> CalculateSTE()
+        {
+            List<double> steValues = new List<double>();
+
+            for(int i = 0; i <= leftChannel.Count - frameSamples; i += shiftSamples)
+            {
+                double vol = 0;
+                for(int j = 0; j < frameSamples; j++)
+                {
+                    double valueToAdd = (leftChannel[i + j] * leftChannel[i + j] + rightChannel[i + j] * rightChannel[i + j]) / 2;
+                    vol += valueToAdd;
+                }
+                vol /= frameSamples;
+                steValues.Add(vol);
+            }
+
+            return steValues;
+        }
+
+        public List<double> CalculateZCR()
+        {
+            List<double> zcrValues = new List<double>();
+
+            for(int i = 0; i <= leftChannel.Count - frameSamples; i += shiftSamples)
+            {
+                int zcr = 0;
+                for(int j = 1; j < frameSamples; j++)
+                {
+                    zcr += Math.Abs(Signum(leftChannel[i + j]) - Signum(leftChannel[i + j - 1]));
+                }
+                zcr *= samplePerSecond / (2 * frameSamples);
+                zcrValues.Add(zcr);
+            }
+
+
+
+            return zcrValues;
+        }
+
+        private int Signum(short value)
+        {
+            if (value >= 0) return 1;
+            else return 0;
         }
     }
 }

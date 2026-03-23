@@ -1,7 +1,8 @@
+using ScottPlot;
+using ScottPlot.Colormaps;
+using ScottPlot.WinForms;
 using System.Media;
 using System.Xml;
-using ScottPlot;
-using ScottPlot.WinForms;
 
 namespace WinFormsApp1
 {
@@ -51,8 +52,45 @@ namespace WinFormsApp1
 
                     values[i] = sample;
                 }
+                formsPlot1.Plot.Clear();
                 var sig = formsPlot1.Plot.Add.Signal(values);
                 formsPlot1.Plot.Axes.SetLimits(0, numSamples, -32768, 32767);
+                formsPlot1.Refresh();
+            }
+        }
+
+        private void button2_Click(object sender, EventArgs e)
+        {
+            if (wavFile != null)
+            {
+                var values = wavFile.CalculateSTE().ToArray();
+                formsPlot1.Plot.Clear();
+                var sig = formsPlot1.Plot.Add.Signal(values);
+                formsPlot1.Plot.Axes.AutoScale();
+                formsPlot1.Refresh();
+            }
+        }
+
+        private void button3_Click(object sender, EventArgs e)
+        {
+            if (wavFile != null)
+            {
+                var values = wavFile.CalculateVolume().ToArray();
+                formsPlot1.Plot.Clear();
+                var sig = formsPlot1.Plot.Add.Signal(values);
+                formsPlot1.Plot.Axes.AutoScale();
+                formsPlot1.Refresh();
+            }
+        }
+
+        private void button4_Click(object sender, EventArgs e)
+        {
+            if (wavFile != null)
+            {
+                var values = wavFile.CalculateZCR().ToArray();
+                formsPlot1.Plot.Clear();
+                var sig = formsPlot1.Plot.Add.Signal(values);
+                formsPlot1.Plot.Axes.AutoScale();
                 formsPlot1.Refresh();
             }
         }
