@@ -179,10 +179,82 @@ namespace WinFormsApp1
             return zcrValues;
         }
 
+        public List<double> Autocorrelation()
+        {
+            List<double> domFrequencies = new List<double>();
+
+            int minFreqHz = 50;
+            int maxFreqHz = 400;
+
+            int minK = samplePerSecond / maxFreqHz; 
+            int maxK = samplePerSecond / minFreqHz; 
+
+            int autoFrameSamples = (int)(0.05 * samplePerSecond); 
+
+            int limit = autoFrameSamples - maxK;
+
+            for (int i = 0; i <= leftChannel.Count - autoFrameSamples; i += shiftSamples) 
+            {
+                long frameSum = 0;
+                for (int j = 0; j < autoFrameSamples; j++)
+                {
+                    frameSum += leftChannel[i + j]; 
+                }
+                double mean = (double)frameSum / autoFrameSamples;
+
+                double rZero = 0;
+                for (int j = 0; j < limit; j++)
+                {
+                    double sample = leftChannel[i + j] - mean;
+                    rZero += sample * sample;
+                }
+
+                double maxSum = double.MinValue;
+                int bestDelay = 0;
+
+                for (int k = minK; k <= maxK; k++)
+                {
+                    double sum = 0;
+                    int delay = k;
+
+                    for (int j = 0; j < limit; j++)
+                    {
+                        double sample1 = leftChannel[i + j] - mean; 
+                        double sample2 = leftChannel[i + j + delay] - mean; 
+
+                        sum += sample1 * sample2;
+                    }
+
+                    if (sum > maxSum)
+                    {
+                        bestDelay = k;
+                        maxSum = sum;
+                    }
+                }
+                if (bestDelay == minK)
+                {
+                    bestDelay = 0;
+                }
+
+                if (bestDelay > 0 && maxSum > 0.45 * rZero && rZero > 1000000)
+                {
+                    domFrequencies.Add((double)samplePerSecond / bestDelay); 
+                }
+                else
+                {
+                    domFrequencies.Add(0);
+                }
+            }
+            return domFrequencies;
+        }
+
         private int Signum(short value)
         {
             if (value >= 0) return 1;
             else return 0;
         }
+
+
+
     }
 }
