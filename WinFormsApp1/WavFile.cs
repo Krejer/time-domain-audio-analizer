@@ -28,16 +28,17 @@ namespace WinFormsApp1
         public List<short> leftChannel { get; set; } = new List<short>();
         public List<short> rightChannel { get; set; } = new List<short>();
         double frameSize = 0.01;
-        double shift = 0.005;
+        public double shift = 0.005;
         int frameSamples;
         int shiftSamples;
 
         public WavFile(string filePath)
         {
-            if(filePath == null || !File.Exists(filePath))
+            if (filePath == null || !File.Exists(filePath))
             {
                 return;
             }
+
             using (var file = File.Open(filePath, FileMode.Open))
             using (BinaryReader reader = new BinaryReader(file))
             {
@@ -76,6 +77,7 @@ namespace WinFormsApp1
                         {
                             reader.BaseStream.Seek(extraBytes, SeekOrigin.Current);
                         }
+
                         fmtFound = true;
                     }
                     else if (chunkId == "data")
@@ -97,6 +99,7 @@ namespace WinFormsApp1
                     MessageBox.Show("Nie znaleziono wymaganych sekcji (fmt/data). Plik może być uszkodzony.");
                     return;
                 }
+
                 if (bitsPerSample != 16)
                 {
                     MessageBox.Show("Ten program obsługuje tylko pliki 16-bitowe.");
@@ -119,6 +122,7 @@ namespace WinFormsApp1
                         rightChannel.Add(leftSample);
                     }
                 }
+
                 frameSamples = (int)(frameSize * samplePerSecond);
                 shiftSamples = (int)(shift * samplePerSecond);
             }
@@ -133,9 +137,11 @@ namespace WinFormsApp1
                 double ste = 0;
                 for (int j = 0; j < frameSamples; j++)
                 {
-                    double valueToAdd = (leftChannel[i + j] * leftChannel[i + j] + rightChannel[i + j] * rightChannel[i + j]) / 2;
+                    double valueToAdd = (leftChannel[i + j] * leftChannel[i + j] +
+                                         rightChannel[i + j] * rightChannel[i + j]) / 2;
                     ste += valueToAdd;
                 }
+
                 ste /= frameSamples;
                 ste = Math.Sqrt(ste);
                 volValues.Add(ste);
@@ -148,17 +154,20 @@ namespace WinFormsApp1
         {
             List<double> steValues = new List<double>();
 
-            for(int i = 0; i <= leftChannel.Count - frameSamples; i += shiftSamples)
+            for (int i = 0; i <= leftChannel.Count - frameSamples; i += shiftSamples)
             {
                 double vol = 0;
-                for(int j = 0; j < frameSamples; j++)
+                for (int j = 0; j < frameSamples; j++)
                 {
-                    double valueToAdd = (leftChannel[i + j] * leftChannel[i + j] + rightChannel[i + j] * rightChannel[i + j]) / 2;
+                    double valueToAdd = (leftChannel[i + j] * leftChannel[i + j] +
+                                         rightChannel[i + j] * rightChannel[i + j]) / 2;
                     vol += valueToAdd;
                 }
+
                 vol /= frameSamples;
                 steValues.Add(vol);
             }
+
             return steValues;
         }
 
@@ -166,18 +175,20 @@ namespace WinFormsApp1
         {
             List<double> zcrValues = new List<double>();
 
-            for(int i = 0; i <= leftChannel.Count - frameSamples; i += shiftSamples)
+            for (int i = 0; i <= leftChannel.Count - frameSamples; i += shiftSamples)
             {
                 double zcr = 0;
-                for(int j = 1; j < frameSamples; j++)
+                for (int j = 1; j < frameSamples; j++)
                 {
                     double left = Math.Abs(Signum(leftChannel[i + j]) - Signum(leftChannel[i + j - 1]));
                     double right = Math.Abs(Signum(rightChannel[i + j]) - Signum(rightChannel[i + j - 1])) / 2;
                     zcr += (left + right) / 2.0;
                 }
+
                 zcr *= (double)samplePerSecond / (2 * frameSamples);
                 zcrValues.Add(zcr);
             }
+
             return zcrValues;
         }
 
@@ -185,12 +196,14 @@ namespace WinFormsApp1
         {
             List<double> steValues = CalculateVolume();
             double avg = 0;
-            for(int i = 0; i < 10; i++)
+            for (int i = 0; i < 10; i++)
             {
                 avg += steValues[i];
             }
+
             return (avg / 10);
         }
+
         public double SetZCRThreshold()
         {
             List<double> zcrValues = CalculateZCR();
@@ -199,38 +212,50 @@ namespace WinFormsApp1
             {
                 avg += zcrValues[i];
             }
+
             return Math.Max((avg / 10.0), 50.0);
         }
 
 
         public List<double> Autocorrelation()
         {
+            List<double> steValues = CalculateVolume();
+            List<double> zcrValues = CalculateZCR();
+
+            double steThreshold = SetSTEThreshold();
+            double zcrThreshold = SetZCRThreshold();
+
             List<double> domFrequencies = new List<double>();
 
             int minFreqHz = 50;
             int maxFreqHz = 400;
 
-            int minK = samplePerSecond / maxFreqHz; 
-            int maxK = samplePerSecond / minFreqHz; 
+            int minK = samplePerSecond / maxFreqHz;
+            int maxK = samplePerSecond / minFreqHz;
 
-            int autoFrameSamples = (int)(0.05 * samplePerSecond); 
+            int autoFrameSamples = (int)(0.05 * samplePerSecond);
 
-            int limit = autoFrameSamples - maxK;
+            int frameIndex = 0;
 
-            for (int i = 0; i <= leftChannel.Count - autoFrameSamples; i += shiftSamples) 
+            for (int i = 0; i <= leftChannel.Count - autoFrameSamples; i += shiftSamples)
             {
-                long frameSum = 0;
-                for (int j = 0; j < autoFrameSamples; j++)
+                if (frameIndex < steValues.Count)
                 {
-                    frameSum += leftChannel[i + j]; 
+                    bool isSilent = steValues[frameIndex] < 5 * steThreshold;
+                    bool isUnvoiced = zcrValues[frameIndex] > 3 * zcrThreshold;
+
+                    if (isSilent || isUnvoiced)
+                    {
+                        domFrequencies.Add(0);
+                        frameIndex++;
+                        continue;
+                    }
                 }
-                double mean = (double)frameSum / autoFrameSamples;
 
                 double rZero = 0;
-                for (int j = 0; j < limit; j++)
+                for (int j = 0; j < autoFrameSamples; j++)
                 {
-                    double sample = leftChannel[i + j] - mean;
-                    rZero += sample * sample;
+                    rZero += leftChannel[i + j] * leftChannel[i + j];
                 }
 
                 double maxSum = double.MinValue;
@@ -241,12 +266,9 @@ namespace WinFormsApp1
                     double sum = 0;
                     int delay = k;
 
-                    for (int j = 0; j < limit; j++)
+                    for (int j = 0; j < autoFrameSamples - delay; j++)
                     {
-                        double sample1 = leftChannel[i + j] - mean; 
-                        double sample2 = leftChannel[i + j + delay] - mean; 
-
-                        sum += sample1 * sample2;
+                        sum += leftChannel[i + j] * leftChannel[i + j + delay];
                     }
 
                     if (sum > maxSum)
@@ -255,6 +277,7 @@ namespace WinFormsApp1
                         maxSum = sum;
                     }
                 }
+
                 if (bestDelay == minK)
                 {
                     bestDelay = 0;
@@ -262,13 +285,92 @@ namespace WinFormsApp1
 
                 if (bestDelay > 0 && maxSum > 0.45 * rZero && rZero > 1000000)
                 {
-                    domFrequencies.Add((double)samplePerSecond / bestDelay); 
+                    domFrequencies.Add((double)samplePerSecond / bestDelay);
                 }
                 else
                 {
                     domFrequencies.Add(0);
                 }
+
+                frameIndex++;
             }
+
+            return domFrequencies;
+        }
+
+
+        public List<double> AMDF()
+        {
+            List<double> steValues = CalculateVolume();
+            List<double> zcrValues = CalculateZCR();
+
+            double steThreshold = SetSTEThreshold();
+            double zcrThreshold = SetZCRThreshold();
+
+            List<double> domFrequencies = new List<double>();
+
+            int minFreqHz = 50;
+            int maxFreqHz = 400;
+
+            int minK = samplePerSecond / maxFreqHz;
+            int maxK = samplePerSecond / minFreqHz;
+
+            int autoFrameSamples = (int)(0.05 * samplePerSecond);
+
+            int frameIndex = 0;
+
+            for (int i = 0; i <= leftChannel.Count - autoFrameSamples; i += shiftSamples)
+            {
+                if (frameIndex < steValues.Count)
+                {
+                    bool isSilent = steValues[frameIndex] < 5 * steThreshold;
+                    bool isUnvoiced = zcrValues[frameIndex] > 3 * zcrThreshold;
+
+                    if (isSilent || isUnvoiced)
+                    {
+                        domFrequencies.Add(0);
+                        frameIndex++;
+                        continue;
+                    }
+                }
+
+                double minSum = double.MaxValue;
+                int bestDelay = 0;
+
+                for (int k = minK; k <= maxK; k++)
+                {
+                    double sum = 0;
+                    int delay = k; 
+
+                    for (int j = 0; j < autoFrameSamples - delay; j++)
+                    {
+                        sum += Math.Abs(leftChannel[i + j + delay] - leftChannel[i + j]);
+                    }
+
+                    if (sum < minSum)
+                    {
+                        bestDelay = k;
+                        minSum = sum;
+                    }
+                }
+
+                if (bestDelay == minK)
+                {
+                    bestDelay = 0;
+                }
+
+                if (bestDelay > 0)
+                {
+                    domFrequencies.Add((double)samplePerSecond / bestDelay);
+                }
+                else
+                {
+                    domFrequencies.Add(0);
+                }
+
+                frameIndex++;
+            }
+
             return domFrequencies;
         }
 
@@ -277,8 +379,5 @@ namespace WinFormsApp1
             if (value >= 0) return 1;
             else return 0;
         }
-
-
-
     }
 }
