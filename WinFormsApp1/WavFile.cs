@@ -28,7 +28,7 @@ namespace WinFormsApp1
         public List<short> leftChannel { get; set; } = new List<short>();
         public List<short> rightChannel { get; set; } = new List<short>();
         double frameSize = 0.01;
-        double shift = 0.005;
+        public double shift = 0.005;
         int frameSamples;
         int shiftSamples;
 
@@ -229,32 +229,43 @@ namespace WinFormsApp1
 
         public List<double> Autocorrelation()
         {
+            List<double> steValues = CalculateVolume();
+            List<double> zcrValues = CalculateZCR();
+
+            double steThreshold = SetSTEThreshold();
+            double zcrThreshold = SetZCRThreshold();
+
             List<double> domFrequencies = new List<double>();
 
             int minFreqHz = 50;
             int maxFreqHz = 400;
 
-            int minK = samplePerSecond / maxFreqHz; 
-            int maxK = samplePerSecond / minFreqHz; 
+            int minK = samplePerSecond / maxFreqHz;
+            int maxK = samplePerSecond / minFreqHz;
 
-            int autoFrameSamples = (int)(0.05 * samplePerSecond); 
+            int autoFrameSamples = (int)(0.05 * samplePerSecond);
 
-            int limit = autoFrameSamples - maxK;
+            int frameIndex = 0;
 
-            for (int i = 0; i <= leftChannel.Count - autoFrameSamples; i += shiftSamples) 
+            for (int i = 0; i <= leftChannel.Count - autoFrameSamples; i += shiftSamples)
             {
-                long frameSum = 0;
-                for (int j = 0; j < autoFrameSamples; j++)
+                if (frameIndex < steValues.Count)
                 {
-                    frameSum += leftChannel[i + j]; 
+                    bool isSilent = steValues[frameIndex] < 5 * steThreshold;
+                    bool isUnvoiced = zcrValues[frameIndex] > 3 * zcrThreshold;
+
+                    if (isSilent || isUnvoiced)
+                    {
+                        domFrequencies.Add(0);
+                        frameIndex++;
+                        continue;
+                    }
                 }
-                double mean = (double)frameSum / autoFrameSamples;
 
                 double rZero = 0;
-                for (int j = 0; j < limit; j++)
+                for (int j = 0; j < autoFrameSamples; j++)
                 {
-                    double sample = leftChannel[i + j] - mean;
-                    rZero += sample * sample;
+                    rZero += leftChannel[i + j] * leftChannel[i + j];
                 }
 
                 double maxSum = double.MinValue;
@@ -265,12 +276,9 @@ namespace WinFormsApp1
                     double sum = 0;
                     int delay = k;
 
-                    for (int j = 0; j < limit; j++)
+                    for (int j = 0; j < autoFrameSamples - delay; j++)
                     {
-                        double sample1 = leftChannel[i + j] - mean; 
-                        double sample2 = leftChannel[i + j + delay] - mean; 
-
-                        sum += sample1 * sample2;
+                        sum += leftChannel[i + j] * leftChannel[i + j + delay];
                     }
 
                     if (sum > maxSum)
@@ -279,6 +287,7 @@ namespace WinFormsApp1
                         maxSum = sum;
                     }
                 }
+
                 if (bestDelay == minK)
                 {
                     bestDelay = 0;
@@ -286,14 +295,99 @@ namespace WinFormsApp1
 
                 if (bestDelay > 0 && maxSum > 0.45 * rZero && rZero > 1000000)
                 {
-                    domFrequencies.Add((double)samplePerSecond / bestDelay); 
+                    domFrequencies.Add((double)samplePerSecond / bestDelay);
                 }
                 else
                 {
                     domFrequencies.Add(0);
                 }
+
+                frameIndex++;
             }
+
             return domFrequencies;
+        }
+
+
+        public List<double> AMDF()
+        {
+            List<double> steValues = CalculateVolume();
+            List<double> zcrValues = CalculateZCR();
+
+            double steThreshold = SetSTEThreshold();
+            double zcrThreshold = SetZCRThreshold();
+
+            List<double> domFrequencies = new List<double>();
+
+            int minFreqHz = 50;
+            int maxFreqHz = 400;
+
+            int minK = samplePerSecond / maxFreqHz;
+            int maxK = samplePerSecond / minFreqHz;
+
+            int autoFrameSamples = (int)(0.05 * samplePerSecond);
+
+            int frameIndex = 0;
+
+            for (int i = 0; i <= leftChannel.Count - autoFrameSamples; i += shiftSamples)
+            {
+                if (frameIndex < steValues.Count)
+                {
+                    bool isSilent = steValues[frameIndex] < 5 * steThreshold;
+                    bool isUnvoiced = zcrValues[frameIndex] > 3 * zcrThreshold;
+
+                    if (isSilent || isUnvoiced)
+                    {
+                        domFrequencies.Add(0);
+                        frameIndex++;
+                        continue;
+                    }
+                }
+
+                double minSum = double.MaxValue;
+                int bestDelay = 0;
+
+                for (int k = minK; k <= maxK; k++)
+                {
+                    double sum = 0;
+                    int delay = k; 
+
+                    for (int j = 0; j < autoFrameSamples - delay; j++)
+                    {
+                        sum += Math.Abs(leftChannel[i + j + delay] - leftChannel[i + j]);
+                    }
+
+                    if (sum < minSum)
+                    {
+                        bestDelay = k;
+                        minSum = sum;
+                    }
+                }
+
+                if (bestDelay == minK)
+                {
+                    bestDelay = 0;
+                }
+
+                if (bestDelay > 0)
+                {
+                    domFrequencies.Add((double)samplePerSecond / bestDelay);
+                }
+                else
+                {
+                    domFrequencies.Add(0);
+                }
+
+                frameIndex++;
+            }
+
+            return domFrequencies;
+        }
+
+        private int Signum(short value)
+        {
+            if (value >= 0) return 1;
+            else return 0;
         }
     }
 }

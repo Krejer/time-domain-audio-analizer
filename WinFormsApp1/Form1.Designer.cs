@@ -36,6 +36,8 @@
             button4 = new Button();
             domFreq = new Button();
             Silence = new Button();
+            autcorRadio = new RadioButton();
+            amdfRadio = new RadioButton();
             SuspendLayout();
             // 
             // formsPlot1
@@ -100,11 +102,11 @@
             // domFreq
             // 
             domFreq.Location = new Point(12, 301);
-            domFreq.Margin = new Padding(2, 2, 2, 2);
+            domFreq.Margin = new Padding(2);
             domFreq.Name = "domFreq";
             domFreq.Size = new Size(87, 38);
             domFreq.TabIndex = 7;
-            domFreq.Text = "Dominant frequencies";
+            domFreq.Text = "Fundamental Frequency";
             domFreq.UseVisualStyleBackColor = true;
             domFreq.Click += domFreq_Click;
             // 
@@ -112,7 +114,7 @@
             // 
             Silence.ImageAlign = ContentAlignment.TopRight;
             Silence.Location = new Point(12, 252);
-            Silence.Margin = new Padding(2, 2, 2, 2);
+            Silence.Margin = new Padding(2);
             Silence.Name = "Silence";
             Silence.Size = new Size(87, 28);
             Silence.TabIndex = 7;
@@ -120,11 +122,35 @@
             Silence.UseVisualStyleBackColor = true;
             Silence.Click += Silence_Click;
             // 
+            // autcorRadio
+            // 
+            autcorRadio.AutoSize = true;
+            autcorRadio.Checked = true;
+            autcorRadio.Location = new Point(12, 344);
+            autcorRadio.Name = "autcorRadio";
+            autcorRadio.Size = new Size(108, 19);
+            autcorRadio.TabIndex = 8;
+            autcorRadio.TabStop = true;
+            autcorRadio.Text = "Autocorrelation";
+            autcorRadio.UseVisualStyleBackColor = true;
+            // 
+            // amdfRadio
+            // 
+            amdfRadio.AutoSize = true;
+            amdfRadio.Location = new Point(12, 369);
+            amdfRadio.Name = "amdfRadio";
+            amdfRadio.Size = new Size(58, 19);
+            amdfRadio.TabIndex = 9;
+            amdfRadio.Text = "AMDF";
+            amdfRadio.UseVisualStyleBackColor = true;
+            // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(924, 480);
+            Controls.Add(amdfRadio);
+            Controls.Add(autcorRadio);
             Controls.Add(domFreq);
             Controls.Add(Silence);
             Controls.Add(button4);
@@ -138,6 +164,7 @@
             StartPosition = FormStartPosition.CenterScreen;
             Text = "Project 1";
             ResumeLayout(false);
+            PerformLayout();
         }
 
         #endregion
@@ -150,5 +177,7 @@
         private Button button4;
         private Button Silence;
         private Button domFreq;
+        private RadioButton autcorRadio;
+        private RadioButton amdfRadio;
     }
 }

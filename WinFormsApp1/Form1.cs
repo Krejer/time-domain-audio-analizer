@@ -14,6 +14,42 @@ namespace WinFormsApp1
         public Form1()
         {
             InitializeComponent();
+            
+            this.AllowDrop = true; 
+            
+            this.DragEnter += Form1_DragEnter;
+            this.DragDrop += Form1_DragDrop;
+        }
+        
+        private void Form1_DragEnter(object sender, DragEventArgs e)
+        {
+            if (e.Data.GetDataPresent(DataFormats.FileDrop))
+            {
+                string[] files = (string[])e.Data.GetData(DataFormats.FileDrop);
+        
+                if (files.Length > 0 && files[0].EndsWith(".wav", StringComparison.OrdinalIgnoreCase))
+                {
+                    e.Effect = DragDropEffects.Copy; 
+                    return;
+                }
+            }
+            
+            e.Effect = DragDropEffects.None;
+        }
+        
+        private void Form1_DragDrop(object sender, DragEventArgs e)
+        {
+            string[] files = (string[])e.Data.GetData(DataFormats.FileDrop);
+    
+            if (files.Length > 0)
+            {
+                string wavFilePath = files[0]; 
+                
+                wavFile = new WavFile(wavFilePath);
+                PrintData(wavFile);
+                
+                Print_Click(null, null); 
+            }
         }
 
         private void button1_Click(object sender, EventArgs e)
@@ -25,6 +61,8 @@ namespace WinFormsApp1
             {
                 wavFilePath = ofd.FileName;
             }
+            else
+                return;
             wavFile = new WavFile(wavFilePath);
             PrintData(wavFile);
             Print_Click(sender, e);
@@ -55,7 +93,11 @@ namespace WinFormsApp1
                 }
                 formsPlot1.Plot.Clear();
                 var sig = formsPlot1.Plot.Add.Signal(values);
-                formsPlot1.Plot.Axes.SetLimits(0, numSamples, -32768, 32767);
+                
+                sig.Data.Period = 1.0 / wavFile.samplePerSecond; 
+                
+                double totalTime = (double)numSamples / wavFile.samplePerSecond;
+                formsPlot1.Plot.Axes.SetLimits(0, totalTime, -32768, 32767);
                 formsPlot1.Refresh();
             }
         }
@@ -67,6 +109,9 @@ namespace WinFormsApp1
                 var values = wavFile.CalculateSTE().ToArray();
                 formsPlot1.Plot.Clear();
                 var sig = formsPlot1.Plot.Add.Signal(values);
+                
+                sig.Data.Period = wavFile.shift;
+                
                 formsPlot1.Plot.Axes.AutoScale();
                 formsPlot1.Refresh();
             }
@@ -79,6 +124,8 @@ namespace WinFormsApp1
                 var values = wavFile.CalculateVolume().ToArray();
                 formsPlot1.Plot.Clear();
                 var sig = formsPlot1.Plot.Add.Signal(values);
+                
+                sig.Data.Period = wavFile.shift;
                 formsPlot1.Plot.Axes.AutoScale();
                 formsPlot1.Refresh();
             }
@@ -91,6 +138,7 @@ namespace WinFormsApp1
                 var values = wavFile.CalculateZCR().ToArray();
                 formsPlot1.Plot.Clear();
                 var sig = formsPlot1.Plot.Add.Signal(values);
+                sig.Data.Period = wavFile.shift;
                 formsPlot1.Plot.Axes.AutoScale();
                 formsPlot1.Refresh();
                 ClipLevel.CalculateLSTER(wavFile);
@@ -154,7 +202,10 @@ namespace WinFormsApp1
                 }
                 formsPlot1.Plot.Clear();
                 var sig = formsPlot1.Plot.Add.Signal(values);
-                formsPlot1.Plot.Axes.SetLimits(0, numSamples, -32768, 32767);
+                sig.Data.Period = 1.0 / wavFile.samplePerSecond;
+                
+                double totalTime = (double)numSamples / wavFile.samplePerSecond;
+                formsPlot1.Plot.Axes.SetLimits(0, totalTime, -32768, 32767);
 
 
                 double ratio = (double)values.Length / steValues.Count;
@@ -163,10 +214,12 @@ namespace WinFormsApp1
                 {
                     if ((r - s) >= minSilenceFrames)
                     {
-                        int leftX = (int)(s * ratio);
-                        int rightX = (int)(r * ratio);
-                        if (rightX > numSamples) rightX = numSamples;
-                        var hSpan = formsPlot1.Plot.Add.HorizontalSpan(leftX, rightX);
+                        double leftTime = s * wavFile.shift;
+                        double rightTime = r * wavFile.shift;
+                        
+                        if (rightTime > totalTime) rightTime = totalTime;
+
+                        var hSpan = formsPlot1.Plot.Add.HorizontalSpan(leftTime, rightTime);
                         hSpan.FillColor = ScottPlot.Colors.Red.WithAlpha(100);
                     }
                 }
@@ -179,9 +232,18 @@ namespace WinFormsApp1
             ClipLevel.CalculateVolumeUndulation(wavFile);
             if (wavFile != null)
             {
-                var values = wavFile.Autocorrelation().ToArray();
+                double[] values;
+                if (autcorRadio.Checked)
+                {
+                    values = wavFile.Autocorrelation().ToArray();
+                }
+                else
+                {
+                    values = wavFile.AMDF().ToArray();
+                }
                 formsPlot1.Plot.Clear();
                 var sig = formsPlot1.Plot.Add.Signal(values);
+                sig.Data.Period = wavFile.shift;
                 formsPlot1.Plot.Axes.AutoScale();
                 formsPlot1.Refresh();
             }
