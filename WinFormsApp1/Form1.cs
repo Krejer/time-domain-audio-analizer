@@ -93,6 +93,7 @@ namespace WinFormsApp1
                 var sig = formsPlot1.Plot.Add.Signal(values);
                 formsPlot1.Plot.Axes.AutoScale();
                 formsPlot1.Refresh();
+                ClipLevel.CalculateLSTER(wavFile);
             }
         }
 
@@ -102,8 +103,6 @@ namespace WinFormsApp1
             {
                 double steThreshold = wavFile.SetSTEThreshold();
                 double zcrThreshold = wavFile.SetZCRThreshold();
-                //double steThreshold = 2000;
-                //double zcrThreshold = 200;
                 List<double> steValues = wavFile.CalculateVolume();
                 List<double> zcrValues = wavFile.CalculateZCR();
                 List<(int, int)> isSilent = new List<(int, int)>();
@@ -177,6 +176,7 @@ namespace WinFormsApp1
 
         private void domFreq_Click(object sender, EventArgs e)
         {
+            ClipLevel.CalculateVolumeUndulation(wavFile);
             if (wavFile != null)
             {
                 var values = wavFile.Autocorrelation().ToArray();

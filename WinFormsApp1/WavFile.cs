@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace WinFormsApp1
 {
-    internal class WavFile
+    public class WavFile
     {
         public string riffChunkId;
         public int riffChunkSize;
@@ -171,8 +171,8 @@ namespace WinFormsApp1
                 double zcr = 0;
                 for(int j = 1; j < frameSamples; j++)
                 {
-                    double left = Math.Abs(Signum(leftChannel[i + j]) - Signum(leftChannel[i + j - 1]));
-                    double right = Math.Abs(Signum(rightChannel[i + j]) - Signum(rightChannel[i + j - 1])) / 2;
+                    double left = Math.Abs(ClipLevel.Signum(leftChannel[i + j]) - ClipLevel.Signum(leftChannel[i + j - 1]));
+                    double right = Math.Abs(ClipLevel.Signum(rightChannel[i + j]) - ClipLevel.Signum(rightChannel[i + j - 1])) / 2;
                     zcr += (left + right) / 2.0;
                 }
                 zcr *= (double)samplePerSecond / (2 * frameSamples);
@@ -200,6 +200,30 @@ namespace WinFormsApp1
                 avg += zcrValues[i];
             }
             return Math.Max((avg / 10.0), 50.0);
+        }
+
+        public (double, double) CalculateMinAndMaxVolume()
+        {
+            double minVolume = int.MaxValue;
+            double maxVolume = int.MinValue;
+
+            for (int i = 0; i <= leftChannel.Count - frameSamples; i += shiftSamples)
+            {
+                for (int j = 0; j < frameSamples; j++)
+                {
+                    double vol = (leftChannel[i + j] * leftChannel[i + j] + rightChannel[i + j] * rightChannel[i + j]) / 2;
+                    if(vol > maxVolume)
+                    {
+                        maxVolume = vol;
+                    }
+                    if(vol < minVolume)
+                    {
+                        minVolume = vol;
+                    }
+                }
+            }
+
+            return (minVolume, maxVolume);
         }
 
 
@@ -271,14 +295,5 @@ namespace WinFormsApp1
             }
             return domFrequencies;
         }
-
-        private int Signum(short value)
-        {
-            if (value >= 0) return 1;
-            else return 0;
-        }
-
-
-
     }
 }
