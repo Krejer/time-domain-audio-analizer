@@ -10,7 +10,6 @@ namespace WinFormsApp1
     public partial class Form1 : Form
     {
         WavFile? wavFile = null;
-        readonly FormsPlot FormsPlot1 = new FormsPlot() { Dock = DockStyle.Fill };
 
         public Form1()
         {
@@ -28,6 +27,7 @@ namespace WinFormsApp1
             }
             wavFile = new WavFile(wavFilePath);
             PrintData(wavFile);
+            Print_Click(sender, e);
         }
 
         private void textBox1_TextChanged(object sender, EventArgs e)
@@ -174,6 +174,17 @@ namespace WinFormsApp1
                 formsPlot1.Refresh();
             }
         }
-    }
 
+        private void domFreq_Click(object sender, EventArgs e)
+        {
+            if (wavFile != null)
+            {
+                var values = wavFile.Autocorrelation().ToArray();
+                formsPlot1.Plot.Clear();
+                var sig = formsPlot1.Plot.Add.Signal(values);
+                formsPlot1.Plot.Axes.AutoScale();
+                formsPlot1.Refresh();
+            }
+        }
+    }
 }
