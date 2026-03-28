@@ -36,10 +36,12 @@ namespace WinFormsApp1
         private List<double>? _cachedZCR = null;
         private List<double>? _cachedSTE = null;
         private List<(int start, int end)>? _cachedSilenceFrames = null;
+        private List<(int start, int end)>? _cachedVoicedFrames = null;
+        private List<(int start, int end)>? _cachedUnvoicedFrames = null;
 
         public WavFile(string filePath)
         {
-            if(filePath == null || !File.Exists(filePath))
+            if (filePath == null || !File.Exists(filePath))
             {
                 return;
             }
@@ -157,10 +159,10 @@ namespace WinFormsApp1
 
             List<double> steValues = new List<double>();
 
-            for(int i = 0; i <= leftChannel.Count - frameSamples; i += shiftSamples)
+            for (int i = 0; i <= leftChannel.Count - frameSamples; i += shiftSamples)
             {
                 double vol = 0;
-                for(int j = 0; j < frameSamples; j++)
+                for (int j = 0; j < frameSamples; j++)
                 {
                     double valueToAdd = (leftChannel[i + j] * leftChannel[i + j] + rightChannel[i + j] * rightChannel[i + j]) / 2;
                     vol += valueToAdd;
@@ -174,14 +176,14 @@ namespace WinFormsApp1
 
         public List<double> CalculateZCR()
         {
-            if (_cachedZCR  != null) return _cachedZCR;
+            if (_cachedZCR != null) return _cachedZCR;
 
             List<double> zcrValues = new List<double>();
 
-            for(int i = 0; i <= leftChannel.Count - frameSamples; i += shiftSamples)
+            for (int i = 0; i <= leftChannel.Count - frameSamples; i += shiftSamples)
             {
                 double zcr = 0;
-                for(int j = 1; j < frameSamples; j++)
+                for (int j = 1; j < frameSamples; j++)
                 {
                     double left = Math.Abs(ClipLevel.Signum(leftChannel[i + j]) - ClipLevel.Signum(leftChannel[i + j - 1]));
                     double right = Math.Abs(ClipLevel.Signum(rightChannel[i + j]) - ClipLevel.Signum(rightChannel[i + j - 1])) / 2;
@@ -198,7 +200,7 @@ namespace WinFormsApp1
         {
             List<double> steValues = CalculateVolume();
             double avg = 0;
-            for(int i = 0; i < 10; i++)
+            for (int i = 0; i < 10; i++)
             {
                 avg += steValues[i];
             }
@@ -215,55 +217,108 @@ namespace WinFormsApp1
             return Math.Max((avg / 10.0), 50.0);
         }
 
-        public List<(int start, int end)> GetSilenceFrames()
+        private void CalculateAllFrameTypes()
         {
-            if (_cachedSilenceFrames != null) return _cachedSilenceFrames;
 
-            double steThreshold = SetSTEThreshold();
-            double zcrThreshold = SetZCRThreshold();
+            if (_cachedSilenceFrames != null) return;
+
+            double baseSte = SetSTEThreshold();
+
+            double speechZcrThreshold = 1500;
 
             List<double> steValues = CalculateVolume();
             List<double> zcrValues = CalculateZCR();
 
-            List<(int start, int end)> isSilent = new List<(int, int)>();
-            bool isCurrentlySilent = false;
-            int start = -1;
-            int end = -1;
+            _cachedSilenceFrames = new List<(int, int)>();
+            _cachedVoicedFrames = new List<(int, int)>();
+            _cachedUnvoicedFrames = new List<(int, int)>();
+
+            bool inSilence = false; int startSilence = -1;
+            bool inVoiced = false; int startVoiced = -1;
+            bool inUnvoiced = false; int startUnvoiced = -1;
 
             for (int i = 0; i < steValues.Count; i++)
             {
-                if (steValues[i] < 5 * steThreshold)
+                bool hasEnergy = steValues[i] > Math.Max(5 * baseSte, 50.0);
+
+                bool isHighFreq = zcrValues[i] > speechZcrThreshold;
+
+                bool isSilence = !hasEnergy;
+                bool isUnvoiced = hasEnergy && isHighFreq;
+                bool isVoiced = hasEnergy && !isHighFreq;
+
+                if (isSilence)
                 {
-                    if (zcrValues[i] > 3 * zcrThreshold)
+                    if (!inSilence)
                     {
-                        if (isCurrentlySilent)
-                        {
-                            end = i;
-                            isCurrentlySilent = false;
-                            isSilent.Add((start, end));
-                        }
-                    }
-                    else if (!isCurrentlySilent)
-                    {
-                        start = i;
-                        isCurrentlySilent = true;
+                        startSilence = i;
+                        inSilence = true;
                     }
                 }
-                else if (isCurrentlySilent)
+                else
                 {
-                    end = i;
-                    isCurrentlySilent = false;
-                    isSilent.Add((start, end));
+                    if (inSilence)
+                    {
+                        _cachedSilenceFrames.Add((startSilence, i));
+                        inSilence = false;
+                    }
                 }
-            }
-            if (isCurrentlySilent)
-            {
-                end = steValues.Count;
-                isSilent.Add((start, end));
+
+                if (isVoiced) 
+                { 
+                    if (!inVoiced) 
+                    { startVoiced = i; 
+                        inVoiced = true; 
+                    } 
+                }
+                else 
+                { 
+                    if (inVoiced) 
+                    { 
+                        _cachedVoicedFrames.Add((startVoiced, i)); 
+                        inVoiced = false; 
+                    } 
+                }
+
+                if (isUnvoiced) 
+                { 
+                    if (!inUnvoiced) 
+                    { 
+                        startUnvoiced = i; 
+                        inUnvoiced = true; 
+                    } 
+                }
+                else 
+                { 
+                    if (inUnvoiced) 
+                    { 
+                        _cachedUnvoicedFrames.Add((startUnvoiced, i)); 
+                        inUnvoiced = false; 
+                    } 
+                }
             }
 
-            _cachedSilenceFrames = isSilent;
-            return _cachedSilenceFrames;
+            if (inSilence) _cachedSilenceFrames.Add((startSilence, steValues.Count));
+            if (inVoiced) _cachedVoicedFrames.Add((startVoiced, steValues.Count));
+            if (inUnvoiced) _cachedUnvoicedFrames.Add((startUnvoiced, steValues.Count));
+        }
+
+        public List<(int start, int end)> GetSilenceFrames()
+        {
+            CalculateAllFrameTypes();
+            return _cachedSilenceFrames!;
+        }
+
+        public List<(int start, int end)> GetVoicedFrames()
+        {
+            CalculateAllFrameTypes();
+            return _cachedVoicedFrames!;
+        }
+
+        public List<(int start, int end)> GetUnvoicedFrames()
+        {
+            CalculateAllFrameTypes();
+            return _cachedUnvoicedFrames!;
         }
 
         public (double, double) CalculateMinAndMaxVolume()
@@ -276,11 +331,11 @@ namespace WinFormsApp1
                 for (int j = 0; j < frameSamples; j++)
                 {
                     double vol = (leftChannel[i + j] * leftChannel[i + j] + rightChannel[i + j] * rightChannel[i + j]) / 2;
-                    if(vol > maxVolume)
+                    if (vol > maxVolume)
                     {
                         maxVolume = vol;
                     }
-                    if(vol < minVolume)
+                    if (vol < minVolume)
                     {
                         minVolume = vol;
                     }
@@ -414,7 +469,7 @@ namespace WinFormsApp1
                 for (int k = minK; k <= maxK; k++)
                 {
                     double sum = 0;
-                    int delay = k; 
+                    int delay = k;
 
                     for (int j = 0; j < autoFrameSamples - delay; j++)
                     {

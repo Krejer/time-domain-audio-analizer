@@ -38,15 +38,17 @@
             autcorRadio = new RadioButton();
             amdfRadio = new RadioButton();
             chkShowSilence = new CheckBox();
+            chkVoiced = new CheckBox();
+            chkUnvoiced = new CheckBox();
             SuspendLayout();
             // 
             // formsPlot1
             // 
             formsPlot1.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             formsPlot1.DisplayScale = 1F;
-            formsPlot1.Location = new Point(105, 8);
+            formsPlot1.Location = new Point(127, 8);
             formsPlot1.Name = "formsPlot1";
-            formsPlot1.Size = new Size(806, 453);
+            formsPlot1.Size = new Size(784, 453);
             formsPlot1.TabIndex = 3;
             // 
             // loadButton
@@ -138,17 +140,41 @@
             chkShowSilence.AutoSize = true;
             chkShowSilence.Location = new Point(11, 358);
             chkShowSilence.Name = "chkShowSilence";
-            chkShowSilence.Size = new Size(63, 19);
+            chkShowSilence.Size = new Size(94, 19);
             chkShowSilence.TabIndex = 10;
-            chkShowSilence.Text = "Silence";
+            chkShowSilence.Text = "Silence (Red)";
             chkShowSilence.UseVisualStyleBackColor = true;
             chkShowSilence.CheckedChanged += chkShowSilence_CheckedChanged;
+            // 
+            // chkVoiced
+            // 
+            chkVoiced.AutoSize = true;
+            chkVoiced.Location = new Point(11, 383);
+            chkVoiced.Name = "chkVoiced";
+            chkVoiced.Size = new Size(103, 19);
+            chkVoiced.TabIndex = 11;
+            chkVoiced.Text = "Voiced (Green)";
+            chkVoiced.UseVisualStyleBackColor = true;
+            chkVoiced.CheckedChanged += chkVoiced_CheckedChanged;
+            // 
+            // chkUnvoiced
+            // 
+            chkUnvoiced.AutoSize = true;
+            chkUnvoiced.Location = new Point(11, 408);
+            chkUnvoiced.Name = "chkUnvoiced";
+            chkUnvoiced.Size = new Size(110, 19);
+            chkUnvoiced.TabIndex = 12;
+            chkUnvoiced.Text = "Unvoiced (Blue)";
+            chkUnvoiced.UseVisualStyleBackColor = true;
+            chkUnvoiced.CheckedChanged += chkUnvoiced_CheckedChanged;
             // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(924, 480);
+            Controls.Add(chkUnvoiced);
+            Controls.Add(chkVoiced);
             Controls.Add(chkShowSilence);
             Controls.Add(amdfRadio);
             Controls.Add(autcorRadio);
@@ -179,5 +205,7 @@
         private RadioButton autcorRadio;
         private RadioButton amdfRadio;
         private CheckBox chkShowSilence;
+        private CheckBox chkVoiced;
+        private CheckBox chkUnvoiced;
     }
 }

@@ -62,7 +62,17 @@ namespace WinFormsApp1
 
             if (chkShowSilence.Checked)
             {
-                DrawSilenceOverlay();
+                DrawOverlay(wavFile.GetSilenceFrames(), ScottPlot.Colors.Red.WithAlpha(100));
+            }
+
+            if (chkVoiced.Checked)
+            {
+                DrawOverlay(wavFile.GetVoicedFrames(), ScottPlot.Colors.Green.WithAlpha(100));
+            }
+
+            if (chkUnvoiced.Checked)
+            {
+                DrawOverlay(wavFile.GetUnvoicedFrames(), ScottPlot.Colors.Blue.WithAlpha(100));
             }
 
             formsPlot1.Refresh();
@@ -168,20 +178,18 @@ namespace WinFormsApp1
             UpdatePlot();
         }
 
-        private void DrawSilenceOverlay()
+        private void DrawOverlay(List<(int start, int end)> frames, ScottPlot.Color color)
         {
-            var silenceFrames = wavFile.GetSilenceFrames();
-
-            int minSilenceFrames = 5;
-            foreach (var (s, r) in silenceFrames)
+            int minFrames = 5;
+            foreach (var (s, r) in frames)
             {
-                if ((r - s) >= minSilenceFrames)
+                if ((r - s) >= minFrames)
                 {
                     double leftTime = s * wavFile.shift;
                     double rightTime = r * wavFile.shift;
 
                     var hSpan = formsPlot1.Plot.Add.HorizontalSpan(leftTime, rightTime);
-                    hSpan.FillColor = ScottPlot.Colors.Red.WithAlpha(100);
+                    hSpan.FillColor = color;
                 }
             }
         }
@@ -236,10 +244,22 @@ namespace WinFormsApp1
             UpdatePlot();
         }
 
+
+
         private void autcorRadio_CheckedChanged(object sender, EventArgs e)
         {
             if (currentMode != DisplayMode.F0_AMDF && currentMode != DisplayMode.F0_Autocorr) return;
             domFreq_Click(sender, e);
+        }
+
+        private void chkVoiced_CheckedChanged(object sender, EventArgs e)
+        {
+            UpdatePlot();
+        }
+
+        private void chkUnvoiced_CheckedChanged(object sender, EventArgs e)
+        {
+            UpdatePlot();
         }
     }
 }
