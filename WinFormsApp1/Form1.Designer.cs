@@ -34,6 +34,7 @@
             button2 = new Button();
             button3 = new Button();
             button4 = new Button();
+            Silence = new Button();
             SuspendLayout();
             // 
             // button1
@@ -48,7 +49,7 @@
             // 
             // Print
             // 
-            Print.Location = new Point(12, 67);
+            Print.Location = new Point(12, 62);
             Print.Name = "Print";
             Print.Size = new Size(87, 23);
             Print.TabIndex = 2;
@@ -66,7 +67,7 @@
             // 
             // button2
             // 
-            button2.Location = new Point(12, 111);
+            button2.Location = new Point(12, 105);
             button2.Name = "button2";
             button2.Size = new Size(87, 23);
             button2.TabIndex = 4;
@@ -76,7 +77,7 @@
             // 
             // button3
             // 
-            button3.Location = new Point(12, 160);
+            button3.Location = new Point(12, 146);
             button3.Name = "button3";
             button3.Size = new Size(87, 23);
             button3.TabIndex = 5;
@@ -86,7 +87,7 @@
             // 
             // button4
             // 
-            button4.Location = new Point(12, 208);
+            button4.Location = new Point(12, 188);
             button4.Name = "button4";
             button4.Size = new Size(87, 23);
             button4.TabIndex = 6;
@@ -94,11 +95,23 @@
             button4.UseVisualStyleBackColor = true;
             button4.Click += button4_Click;
             // 
+            // Silence
+            // 
+            Silence.ImageAlign = ContentAlignment.TopRight;
+            Silence.Location = new Point(12, 236);
+            Silence.Name = "Silence";
+            Silence.Size = new Size(87, 23);
+            Silence.TabIndex = 7;
+            Silence.Text = "Silence";
+            Silence.UseVisualStyleBackColor = true;
+            Silence.Click += Silence_Click;
+            // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(1584, 961);
+            Controls.Add(Silence);
             Controls.Add(button4);
             Controls.Add(button3);
             Controls.Add(button2);
@@ -107,7 +120,7 @@
             Controls.Add(button1);
             Name = "Form1";
             StartPosition = FormStartPosition.CenterScreen;
-            Text = "Form1";
+            Text = "Project 1";
             ResumeLayout(false);
         }
 
@@ -119,5 +132,6 @@
         private Button button2;
         private Button button3;
         private Button button4;
+        private Button Silence;
     }
 }

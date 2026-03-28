@@ -27,13 +27,17 @@ namespace WinFormsApp1
         public byte[] data;
         public List<short> leftChannel { get; set; } = new List<short>();
         public List<short> rightChannel { get; set; } = new List<short>();
-        double frameSize = 0.02;
-        double shift = 0.01;
+        double frameSize = 0.01;
+        double shift = 0.005;
         int frameSamples;
         int shiftSamples;
 
         public WavFile(string filePath)
         {
+            if(filePath == null || !File.Exists(filePath))
+            {
+                return;
+            }
             using (var file = File.Open(filePath, FileMode.Open))
             using (BinaryReader reader = new BinaryReader(file))
             {
@@ -111,7 +115,7 @@ namespace WinFormsApp1
                         rightChannel.Add(rightSample);
                     }
                     else
-                    { 
+                    {
                         rightChannel.Add(leftSample);
                     }
                 }
@@ -155,7 +159,6 @@ namespace WinFormsApp1
                 vol /= frameSamples;
                 steValues.Add(vol);
             }
-
             return steValues;
         }
 
@@ -165,19 +168,40 @@ namespace WinFormsApp1
 
             for(int i = 0; i <= leftChannel.Count - frameSamples; i += shiftSamples)
             {
-                int zcr = 0;
+                double zcr = 0;
                 for(int j = 1; j < frameSamples; j++)
                 {
-                    zcr += Math.Abs(Signum(leftChannel[i + j]) - Signum(leftChannel[i + j - 1]));
+                    double left = Math.Abs(Signum(leftChannel[i + j]) - Signum(leftChannel[i + j - 1]));
+                    double right = Math.Abs(Signum(rightChannel[i + j]) - Signum(rightChannel[i + j - 1])) / 2;
+                    zcr += (left + right) / 2.0;
                 }
-                zcr *= samplePerSecond / (2 * frameSamples);
+                zcr *= (double)samplePerSecond / (2 * frameSamples);
                 zcrValues.Add(zcr);
             }
-
-
-
             return zcrValues;
         }
+
+        public double SetSTEThreshold()
+        {
+            List<double> steValues = CalculateVolume();
+            double avg = 0;
+            for(int i = 0; i < 10; i++)
+            {
+                avg += steValues[i];
+            }
+            return (avg / 10);
+        }
+        public double SetZCRThreshold()
+        {
+            List<double> zcrValues = CalculateZCR();
+            double avg = 0;
+            for (int i = 0; i < 10; i++)
+            {
+                avg += zcrValues[i];
+            }
+            return Math.Max((avg / 10.0), 50.0);
+        }
+
 
         private int Signum(short value)
         {
