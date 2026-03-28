@@ -32,6 +32,11 @@ namespace WinFormsApp1
         int frameSamples;
         int shiftSamples;
 
+        private List<double>? _cachedVolume = null;
+        private List<double>? _cachedZCR = null;
+        private List<double>? _cachedSTE = null;
+        private List<(int start, int end)>? _cachedSilenceFrames = null;
+
         public WavFile(string filePath)
         {
             if(filePath == null || !File.Exists(filePath))
@@ -126,6 +131,8 @@ namespace WinFormsApp1
 
         public List<double> CalculateVolume()
         {
+            if (_cachedVolume != null) return _cachedVolume;
+
             List<double> volValues = new List<double>();
 
             for (int i = 0; i <= leftChannel.Count - frameSamples; i += shiftSamples)
@@ -140,12 +147,14 @@ namespace WinFormsApp1
                 ste = Math.Sqrt(ste);
                 volValues.Add(ste);
             }
-
+            _cachedVolume = volValues;
             return volValues;
         }
 
         public List<double> CalculateSTE()
         {
+            if (_cachedSTE != null) return _cachedSTE;
+
             List<double> steValues = new List<double>();
 
             for(int i = 0; i <= leftChannel.Count - frameSamples; i += shiftSamples)
@@ -159,11 +168,14 @@ namespace WinFormsApp1
                 vol /= frameSamples;
                 steValues.Add(vol);
             }
+            _cachedSTE = steValues;
             return steValues;
         }
 
         public List<double> CalculateZCR()
         {
+            if (_cachedZCR  != null) return _cachedZCR;
+
             List<double> zcrValues = new List<double>();
 
             for(int i = 0; i <= leftChannel.Count - frameSamples; i += shiftSamples)
@@ -178,6 +190,7 @@ namespace WinFormsApp1
                 zcr *= (double)samplePerSecond / (2 * frameSamples);
                 zcrValues.Add(zcr);
             }
+            _cachedZCR = zcrValues;
             return zcrValues;
         }
 
@@ -200,6 +213,57 @@ namespace WinFormsApp1
                 avg += zcrValues[i];
             }
             return Math.Max((avg / 10.0), 50.0);
+        }
+
+        public List<(int start, int end)> GetSilenceFrames()
+        {
+            if (_cachedSilenceFrames != null) return _cachedSilenceFrames;
+
+            double steThreshold = SetSTEThreshold();
+            double zcrThreshold = SetZCRThreshold();
+
+            List<double> steValues = CalculateVolume();
+            List<double> zcrValues = CalculateZCR();
+
+            List<(int start, int end)> isSilent = new List<(int, int)>();
+            bool isCurrentlySilent = false;
+            int start = -1;
+            int end = -1;
+
+            for (int i = 0; i < steValues.Count; i++)
+            {
+                if (steValues[i] < 5 * steThreshold)
+                {
+                    if (zcrValues[i] > 3 * zcrThreshold)
+                    {
+                        if (isCurrentlySilent)
+                        {
+                            end = i;
+                            isCurrentlySilent = false;
+                            isSilent.Add((start, end));
+                        }
+                    }
+                    else if (!isCurrentlySilent)
+                    {
+                        start = i;
+                        isCurrentlySilent = true;
+                    }
+                }
+                else if (isCurrentlySilent)
+                {
+                    end = i;
+                    isCurrentlySilent = false;
+                    isSilent.Add((start, end));
+                }
+            }
+            if (isCurrentlySilent)
+            {
+                end = steValues.Count;
+                isSilent.Add((start, end));
+            }
+
+            _cachedSilenceFrames = isSilent;
+            return _cachedSilenceFrames;
         }
 
         public (double, double) CalculateMinAndMaxVolume()
@@ -227,7 +291,7 @@ namespace WinFormsApp1
         }
 
 
-        public List<double> Autocorrelation()
+        public List<double> FundFreq_Autocorr()
         {
             List<double> steValues = CalculateVolume();
             List<double> zcrValues = CalculateZCR();
@@ -309,7 +373,7 @@ namespace WinFormsApp1
         }
 
 
-        public List<double> AMDF()
+        public List<double> FundFreq_AMDF()
         {
             List<double> steValues = CalculateVolume();
             List<double> zcrValues = CalculateZCR();
@@ -384,10 +448,5 @@ namespace WinFormsApp1
             return domFrequencies;
         }
 
-        private int Signum(short value)
-        {
-            if (value >= 0) return 1;
-            else return 0;
-        }
     }
 }
