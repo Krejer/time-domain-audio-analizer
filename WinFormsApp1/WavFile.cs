@@ -312,7 +312,7 @@ namespace WinFormsApp1
         public List<(int start, int end)> GetVoicedFrames()
         {
             CalculateAllFrameTypes();
-            return _cachedVoicedFrames!;
+            return _cachedVoicedFrames!.Where(f => (f.end - f.start) >= 5).ToList();
         }
 
         public List<(int start, int end)> GetUnvoicedFrames()
@@ -348,13 +348,10 @@ namespace WinFormsApp1
 
         public List<double> FundFreq_Autocorr()
         {
-            List<double> steValues = CalculateVolume();
-            List<double> zcrValues = CalculateZCR();
+            List<(int start, int end)> voicedFrames = GetVoicedFrames();
 
-            double steThreshold = SetSTEThreshold();
-            double zcrThreshold = SetZCRThreshold();
-
-            List<double> domFrequencies = new List<double>();
+            int totalFrames = CalculateVolume().Count;
+            List<double> domFrequencies = new List<double>(new double[totalFrames]);
 
             int minFreqHz = 50;
             int maxFreqHz = 400;
@@ -364,64 +361,50 @@ namespace WinFormsApp1
 
             int autoFrameSamples = (int)(0.05 * samplePerSecond);
 
-            int frameIndex = 0;
-
-            for (int i = 0; i <= leftChannel.Count - autoFrameSamples; i += shiftSamples)
+            foreach (var (startFrame, endFrame) in voicedFrames)
             {
-                if (frameIndex < steValues.Count)
+                for (int frameIndex = startFrame; frameIndex < endFrame; frameIndex++)
                 {
-                    bool isSilent = steValues[frameIndex] < 5 * steThreshold;
-                    bool isUnvoiced = zcrValues[frameIndex] > 3 * zcrThreshold;
+                    int i = frameIndex * shiftSamples; 
 
-                    if (isSilent || isUnvoiced)
+                    if (i > leftChannel.Count - autoFrameSamples) break;
+
+                    double rZero = 0;
+                    for (int j = 0; j < autoFrameSamples; j++)
                     {
-                        domFrequencies.Add(0);
-                        frameIndex++;
-                        continue;
-                    }
-                }
-
-                double rZero = 0;
-                for (int j = 0; j < autoFrameSamples; j++)
-                {
-                    rZero += leftChannel[i + j] * leftChannel[i + j];
-                }
-
-                double maxSum = double.MinValue;
-                int bestDelay = 0;
-
-                for (int k = minK; k <= maxK; k++)
-                {
-                    double sum = 0;
-                    int delay = k;
-
-                    for (int j = 0; j < autoFrameSamples - delay; j++)
-                    {
-                        sum += leftChannel[i + j] * leftChannel[i + j + delay];
+                        rZero += leftChannel[i + j] * leftChannel[i + j];
                     }
 
-                    if (sum > maxSum)
+                    double maxSum = double.MinValue;
+                    int bestDelay = 0;
+
+                    for (int k = minK; k <= maxK; k++)
                     {
-                        bestDelay = k;
-                        maxSum = sum;
+                        double sum = 0;
+                        int delay = k;
+
+                        for (int j = 0; j < autoFrameSamples - delay; j++)
+                        {
+                            sum += leftChannel[i + j] * leftChannel[i + j + delay];
+                        }
+
+                        if (sum > maxSum)
+                        {
+                            bestDelay = k;
+                            maxSum = sum;
+                        }
+                    }
+
+                    if (bestDelay == minK)
+                    {
+                        bestDelay = 0;
+                    }
+
+                    if (bestDelay > 0 && maxSum > 0.45 * rZero)
+                    {
+                        domFrequencies[frameIndex] = (double)samplePerSecond / bestDelay;
                     }
                 }
-
-                if (bestDelay == minK)
-                {
-                    bestDelay = 0;
-                }
-
-                if (bestDelay > 0 && maxSum > 0.45 * rZero && rZero > 1000000)
-                {
-                    domFrequencies.Add((double)samplePerSecond / bestDelay);
-                }
-                else
-                {
-                    domFrequencies.Add(0);
-                }
-
-                frameIndex++;
             }
 
             return domFrequencies;
@@ -430,13 +413,10 @@ namespace WinFormsApp1
 
         public List<double> FundFreq_AMDF()
         {
-            List<double> steValues = CalculateVolume();
-            List<double> zcrValues = CalculateZCR();
+            List<(int start, int end)> voicedFrames = GetVoicedFrames();
 
-            double steThreshold = SetSTEThreshold();
-            double zcrThreshold = SetZCRThreshold();
-
-            List<double> domFrequencies = new List<double>();
+            int totalFrames = CalculateVolume().Count;
+            List<double> domFrequencies = new List<double>(new double[totalFrames]); 
 
             int minFreqHz = 50;
             int maxFreqHz = 400;
@@ -446,58 +426,47 @@ namespace WinFormsApp1
 
             int autoFrameSamples = (int)(0.05 * samplePerSecond);
 
-            int frameIndex = 0;
-
-            for (int i = 0; i <= leftChannel.Count - autoFrameSamples; i += shiftSamples)
+            foreach (var (startFrame, endFrame) in voicedFrames)
             {
-                if (frameIndex < steValues.Count)
+                for (int frameIndex = startFrame; frameIndex < endFrame; frameIndex++)
                 {
-                    bool isSilent = steValues[frameIndex] < 5 * steThreshold;
-                    bool isUnvoiced = zcrValues[frameIndex] > 3 * zcrThreshold;
+                    int i = frameIndex * shiftSamples; 
 
-                    if (isSilent || isUnvoiced)
+                    if (i > leftChannel.Count - autoFrameSamples) break;
+
+                    double minSum = double.MaxValue;
+                    int bestDelay = 0;
+
+                    for (int k = minK; k <= maxK; k++)
                     {
-                        domFrequencies.Add(0);
-                        frameIndex++;
-                        continue;
+                        double sum = 0;
+                        int delay = k;
+                        int samplesAdded = autoFrameSamples - delay;
+
+                        for (int j = 0; j < samplesAdded; j++)
+                        {
+                            sum += Math.Abs(leftChannel[i + j + delay] - leftChannel[i + j]);
+                        }
+
+                        sum /= samplesAdded;
+
+                        if (sum < minSum)
+                        {
+                            bestDelay = k;
+                            minSum = sum;
+                        }
+                    }
+
+                    if (bestDelay == minK)
+                    {
+                        bestDelay = 0;
+                    }
+
+                    if (bestDelay > 0)
+                    {
+                        domFrequencies[frameIndex] = (double)samplePerSecond / bestDelay;
                     }
                 }
-
-                double minSum = double.MaxValue;
-                int bestDelay = 0;
-
-                for (int k = minK; k <= maxK; k++)
-                {
-                    double sum = 0;
-                    int delay = k;
-
-                    for (int j = 0; j < autoFrameSamples - delay; j++)
-                    {
-                        sum += Math.Abs(leftChannel[i + j + delay] - leftChannel[i + j]);
-                    }
-
-                    if (sum < minSum)
-                    {
-                        bestDelay = k;
-                        minSum = sum;
-                    }
-                }
-
-                if (bestDelay == minK)
-                {
-                    bestDelay = 0;
-                }
-
-                if (bestDelay > 0)
-                {
-                    domFrequencies.Add((double)samplePerSecond / bestDelay);
-                }
-                else
-                {
-                    domFrequencies.Add(0);
-                }
-
-                frameIndex++;
             }
 
             return domFrequencies;
