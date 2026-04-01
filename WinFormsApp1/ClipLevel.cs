@@ -79,10 +79,10 @@ namespace WinFormsApp1
                 if (energy > 0)
                 {
                     double sigma = energy / totalEnergy;
-                    res += Math.Log(sigma, 2);
+                    res += sigma * Math.Log(sigma, 2);
                 }
             }
-            return -res;
+            return -res / Math.Log(steValues.Count, 2);
         }
 
         private static double[] CalculateAverages(List<double> values, int n, int framesPerSec)
@@ -126,18 +126,17 @@ namespace WinFormsApp1
             return temp;
         }
 
-        public static List<(int start, int end)> DetectSpeech(WavFile wavFile)
+        public static (List<(int start, int end)> speech, List<(int start, int end)> music) DetectSpeechAndMusic(WavFile wavFile)
         {
             List<double> zcrValues = wavFile.CalculateZCR();
             List<double> steValues = wavFile.CalculateSTE();
+            List<double> volValues = wavFile.CalculateVolume();
 
             List<(int start, int end)> speechFrames = new List<(int, int)>();
-
-            int framesPerSec = 200;
+            List<(int start, int end)> musicFrames = new List<(int, int)>();
+            int framesPerSec = (int)(1.0 / wavFile.shift);
             int n = zcrValues.Count;
             int windowsCount = (int)Math.Ceiling((double)n / framesPerSec);
-            double maxVol = double.MinValue;
-            double minVol = double.MaxValue;
 
             for (int i = 0; i < windowsCount; i++)
             {
@@ -145,41 +144,51 @@ namespace WinFormsApp1
                 int endFrame = Math.Min(n, startFrame + framesPerSec);
                 int clipLength = endFrame - startFrame;
 
+                if (clipLength == 0) continue;
+
                 double sumSTE = 0;
                 double sumZCR = 0;
+                double maxVol = double.MinValue;
+                double minVol = double.MaxValue;
+
                 for (int j = startFrame; j < endFrame; j++)
                 {
                     sumSTE += steValues[j];
                     sumZCR += zcrValues[j];
-                    double vol = (wavFile.leftChannel[i + j] * wavFile.leftChannel[i + j] + wavFile.rightChannel[i + j] * wavFile.rightChannel[i + j]) / 2;
-                    if(vol > maxVol) maxVol = vol;
-                    if(vol < minVol) minVol = vol;
+
+                    if (volValues[j] > maxVol) maxVol = volValues[j];
+                    if (volValues[j] < minVol) minVol = volValues[j];
                 }
+
                 double avSTE = sumSTE / clipLength;
                 double avZCR = sumZCR / clipLength;
+
                 int lsterCount = 0;
                 int hzcrrCount = 0;
-                double vdr = (maxVol - minVol) / maxVol;
+                double vdr = maxVol > 0 ? (maxVol - minVol) / maxVol : 0;
+
                 for (int j = startFrame; j < endFrame; j++)
                 {
                     if (steValues[j] < 0.5 * avSTE) lsterCount++;
                     if (zcrValues[j] > 1.5 * avZCR) hzcrrCount++;
                 }
+
                 double clipLster = (double)lsterCount / clipLength;
                 double clipHzcrr = (double)hzcrrCount / clipLength;
-
-                if (clipLster > 0.15 && clipHzcrr > 0.1 && vdr > 0.5)
+                if (clipLster > 0.15 && clipHzcrr > 0.05 && vdr > 0.5)
                 {
                     speechFrames.Add((startFrame, endFrame));
                 }
+                else
+                {
+                    musicFrames.Add((startFrame, endFrame));
+                }
             }
 
-            return speechFrames;
+            return (speechFrames, musicFrames);
         }
 
-        public static List<(int start, int end)> SubtractIntervals(
-    List<(int start, int end)> source,
-    List<(int start, int end)> subtract)
+        public static List<(int start, int end)> SubtractIntervals(List<(int start, int end)> source, List<(int start, int end)> subtract)
         {
             var currentIntervals = new List<(int start, int end)>(source);
 

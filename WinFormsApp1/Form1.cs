@@ -74,9 +74,9 @@ namespace WinFormsApp1
             {
                 DrawOverlay(wavFile.GetUnvoicedFrames(), ScottPlot.Colors.Blue.WithAlpha(100));
             }
-            if(chkSpeech.Checked)
+            if (chkSpeech.Checked)
             {
-                List<(int start, int end)> speechFrames = ClipLevel.DetectSpeech(wavFile);
+                List<(int start, int end)> speechFrames = ClipLevel.DetectSpeechAndMusic(wavFile).speech;
                 List<(int start, int end)> silenceFrames = wavFile.GetSilenceFrames();
                 List<(int start, int end)> finalFrames = ClipLevel.SubtractIntervals(speechFrames, silenceFrames);
                 DrawOverlay(finalFrames, ScottPlot.Colors.Cyan.WithAlpha(100));
@@ -84,6 +84,14 @@ namespace WinFormsApp1
             if (chkShowSilence.Checked)
             {
                 DrawOverlay(wavFile.GetSilenceFrames(), ScottPlot.Colors.Red.WithAlpha(100));
+            }
+            if (chkSpeech.Checked)
+            {
+                var res = ClipLevel.DetectSpeechAndMusic(wavFile);
+                var speechFrames = ClipLevel.SubtractIntervals(res.speech, wavFile.GetSilenceFrames());
+                var musicFrames = ClipLevel.SubtractIntervals(res.music, wavFile.GetSilenceFrames());
+                DrawOverlay(speechFrames, ScottPlot.Colors.Purple.WithAlpha(100));
+                DrawOverlay(musicFrames, ScottPlot.Colors.Orange.WithAlpha(150));
             }
 
             formsPlot1.Refresh();
@@ -219,7 +227,7 @@ namespace WinFormsApp1
                 return;
             wavFile = new WavFile(wavFilePath);
             signalButton_Click(sender, e);
-            var vdr  = ClipLevel.CalculateVDR(wavFile);
+            var vdr = ClipLevel.CalculateVDR(wavFile);
             var hzcrr = ClipLevel.CalculateHZCRR(wavFile);
             var entropy = ClipLevel.CalculateEnergyEntropy(wavFile);
             var lster = ClipLevel.CalculateLSTER(wavFile);
@@ -303,6 +311,11 @@ namespace WinFormsApp1
         }
 
         private void chkSpeech_CheckedChanged(object sender, EventArgs e)
+        {
+            UpdatePlot();
+        }
+
+        private void checkBox1_CheckedChanged(object sender, EventArgs e)
         {
             UpdatePlot();
         }
