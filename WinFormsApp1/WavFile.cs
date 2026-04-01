@@ -225,6 +225,7 @@ namespace WinFormsApp1
             if (_cachedSilenceFrames != null) return;
 
             double baseSte = SetSTEThreshold();
+            double baseZcr = SetZCRThreshold();
 
             double speechZcrThreshold = 1500;
 
@@ -244,7 +245,7 @@ namespace WinFormsApp1
 
                 bool isHighFreq = zcrValues[i] > speechZcrThreshold;
 
-                bool isSilence = !hasEnergy;
+                bool isSilence = !hasEnergy && zcrValues[i] < 3 * baseZcr;
                 bool isUnvoiced = hasEnergy && isHighFreq;
                 bool isVoiced = hasEnergy && !isHighFreq;
 

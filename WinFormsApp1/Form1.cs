@@ -78,7 +78,7 @@ namespace WinFormsApp1
             {
                 List<(int start, int end)> speechFrames = ClipLevel.DetectSpeech(wavFile);
                 List<(int start, int end)> silenceFrames = wavFile.GetSilenceFrames();
-                List<(int start, int end)> finalFrames = speechFrames.Intersect(silenceFrames).ToList();
+                List<(int start, int end)> finalFrames = ClipLevel.SubtractIntervals(speechFrames, silenceFrames);
                 DrawOverlay(finalFrames, ScottPlot.Colors.Cyan.WithAlpha(100));
             }
             if (chkShowSilence.Checked)
@@ -219,6 +219,12 @@ namespace WinFormsApp1
                 return;
             wavFile = new WavFile(wavFilePath);
             signalButton_Click(sender, e);
+            var vdr  = ClipLevel.CalculateVDR(wavFile);
+            var hzcrr = ClipLevel.CalculateHZCRR(wavFile);
+            var entropy = ClipLevel.CalculateEnergyEntropy(wavFile);
+            var lster = ClipLevel.CalculateLSTER(wavFile);
+            var volumeUndulation = ClipLevel.CalculateVolumeUndulation(wavFile);
+            label1.Text = $"VDR: {vdr:F2}   HZCRR: {hzcrr:F4}   Energy Entropy: {entropy:F4}   LSTER: {lster:F4}   Volume Undulation: {volumeUndulation:F4}";
         }
 
         private void Form1_DragEnter(object sender, DragEventArgs e)

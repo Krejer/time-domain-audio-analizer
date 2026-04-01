@@ -168,13 +168,48 @@ namespace WinFormsApp1
                 double clipLster = (double)lsterCount / clipLength;
                 double clipHzcrr = (double)hzcrrCount / clipLength;
 
-                if (clipLster > 0.15 && clipHzcrr > 0.10 && vdr > 0.5)
+                if (clipLster > 0.15 && clipHzcrr > 0.1 && vdr > 0.5)
                 {
                     speechFrames.Add((startFrame, endFrame));
                 }
             }
 
             return speechFrames;
+        }
+
+        public static List<(int start, int end)> SubtractIntervals(
+    List<(int start, int end)> source,
+    List<(int start, int end)> subtract)
+        {
+            var currentIntervals = new List<(int start, int end)>(source);
+
+            foreach (var sub in subtract)
+            {
+                var nextIntervals = new List<(int start, int end)>();
+
+                foreach (var current in currentIntervals)
+                {
+                    if (sub.end <= current.start || sub.start >= current.end)
+                    {
+                        nextIntervals.Add(current);
+                    }
+                    else
+                    {
+                        if (current.start < sub.start)
+                        {
+                            nextIntervals.Add((current.start, sub.start));
+                        }
+
+                        if (current.end > sub.end)
+                        {
+                            nextIntervals.Add((sub.end, current.end));
+                        }
+                    }
+                }
+                currentIntervals = nextIntervals;
+            }
+
+            return currentIntervals;
         }
     }
 }
