@@ -1,4 +1,5 @@
-﻿using System;
+﻿using ScottPlot.Interactivity.UserActionResponses;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Resources;
@@ -9,11 +10,14 @@ namespace WinFormsApp1
 {
     public static class ClipLevel
     {
-        public static double CalculateVDR(WavFile wavFile)
+        public static double CalculateVDR(WavFile wavFile, (double minVol, double maxVol)? x = null)
         {
-            (double minVol, double maxVol) = wavFile.CalculateMinAndMaxVolume();
+            if(x == null)
+            {
+                x = wavFile.CalculateMinAndMaxVolume();
+            }
 
-            return ((maxVol - minVol) / maxVol);
+            return ((x.Value.maxVol - x.Value.minVol) / x.Value.maxVol);
         }
 
         public static double CalculateVolumeUndulation(WavFile wavFile)
@@ -41,13 +45,50 @@ namespace WinFormsApp1
             return val;
         }
 
-        public static double CalculateLSTER(WavFile wavFile)
+        public static double CalculateLSTER(WavFile wavFile, List<double>? steValues = null)
         {
-            List<double> steValues = wavFile.CalculateSTE();
+            if(steValues == null)
+            {
+                steValues = wavFile.CalculateSTE();
+            }
             int n = steValues.Count;
             int framesPerSec = 200;
+            double[] sveAvgs = CalculateAverages(steValues, n, framesPerSec);
+            double res = 0;
+            for (int i = 0; i < n; i++)
+            {
+                int windowIndex = i / framesPerSec;
+                res += Math.Sign(0.5 * sveAvgs[windowIndex] - steValues[i]) + 1;
+            }
+            return res / (2.0 * n);
+        }
+        public static double CalculateEnergyEntropy(WavFile wavFile, List<double>? steValues = null)
+        {
+            double totalEnergy = 0;
+            if(steValues == null)
+            {
+                steValues = wavFile.CalculateSTE();
+            }
+            for(int i = 0; i < steValues.Count; i++)
+            {
+                totalEnergy += steValues[i];
+            }
+            double res = 0;
+            foreach(var energy in steValues)
+            {
+                if (energy > 0)
+                {
+                    double sigma = energy / totalEnergy;
+                    res += Math.Log(sigma, 2);
+                }
+            }
+            return -res;
+        }
+
+        private static double[] CalculateAverages(List<double> values, int n, int framesPerSec)
+        {
             int windowsCount = (int)Math.Ceiling((double)n / framesPerSec);
-            double[] sveAvgs = new double[windowsCount];
+            double[] avgs = new double[windowsCount];
             for (int i = 0; i < windowsCount; i++)
             {
                 double sum = 0;
@@ -57,25 +98,83 @@ namespace WinFormsApp1
 
                 for (int j = startFrame; j < endFrame; j++)
                 {
-                    sum += steValues[j];
+                    sum += values[j];
                     framesInThisWindow++;
                 }
 
-                sveAvgs[i] = sum / framesInThisWindow;
+                avgs[i] = sum / framesInThisWindow;
             }
-            double res = 0;
-            for (int i = 0; i < n; i++)
-            {
-                int windowIndex = i / framesPerSec;
-                res += Math.Sign(0.5 * sveAvgs[windowIndex] - steValues[i]) + 1;
-            }
-            return res / (2.0 * n);
+            return avgs;
         }
 
-        public static int Signum(double value)
+        public static double CalculateHZCRR(WavFile wavFile, List<double>? zcrValues = null)
         {
-            if (value >= 0) return 1;
-            else return 0;
+            if(zcrValues == null)
+            {
+                zcrValues = wavFile.CalculateZCR();
+            }
+            int n = zcrValues.Count;
+            int framesPerSec = 200;
+            double[] zcrAvgs = CalculateAverages(zcrValues, n, framesPerSec);
+            double res = 0;
+            for(int i = 0; i < n; i++)
+            {
+                int windowIndex = i / framesPerSec;
+                res += Math.Sign(zcrValues[i] - 1.5 * zcrAvgs[windowIndex]) + 1;
+            }
+            double temp = res / (2.0 * n);
+            return temp;
+        }
+
+        public static List<(int start, int end)> DetectSpeech(WavFile wavFile)
+        {
+            List<double> zcrValues = wavFile.CalculateZCR();
+            List<double> steValues = wavFile.CalculateSTE();
+
+            List<(int start, int end)> speechFrames = new List<(int, int)>();
+
+            int framesPerSec = 200;
+            int n = zcrValues.Count;
+            int windowsCount = (int)Math.Ceiling((double)n / framesPerSec);
+            double maxVol = double.MinValue;
+            double minVol = double.MaxValue;
+
+            for (int i = 0; i < windowsCount; i++)
+            {
+                int startFrame = i * framesPerSec;
+                int endFrame = Math.Min(n, startFrame + framesPerSec);
+                int clipLength = endFrame - startFrame;
+
+                double sumSTE = 0;
+                double sumZCR = 0;
+                for (int j = startFrame; j < endFrame; j++)
+                {
+                    sumSTE += steValues[j];
+                    sumZCR += zcrValues[j];
+                    double vol = (wavFile.leftChannel[i + j] * wavFile.leftChannel[i + j] + wavFile.rightChannel[i + j] * wavFile.rightChannel[i + j]) / 2;
+                    if(vol > maxVol) maxVol = vol;
+                    if(vol < minVol) minVol = vol;
+                }
+                double avSTE = sumSTE / clipLength;
+                double avZCR = sumZCR / clipLength;
+                int lsterCount = 0;
+                int hzcrrCount = 0;
+                double vdr = (maxVol - minVol) / maxVol;
+                for (int j = startFrame; j < endFrame; j++)
+                {
+                    if (steValues[j] < 0.5 * avSTE) lsterCount++;
+                    if (zcrValues[j] > 1.5 * avZCR) hzcrrCount++;
+                }
+                double clipLster = (double)lsterCount / clipLength;
+                double clipHzcrr = (double)hzcrrCount / clipLength;
+
+                if (clipLster > 0.15 && clipHzcrr > 0.10 && vdr > 0.5)
+                {
+                    speechFrames.Add((startFrame, endFrame));
+                }
+            }
+
+            return speechFrames;
         }
     }
 }

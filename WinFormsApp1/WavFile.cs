@@ -10,6 +10,7 @@ namespace WinFormsApp1
 {
     public class WavFile
     {
+        public string fileName;
         public string riffChunkId;
         public int riffChunkSize;
         public string riffFormat;
@@ -48,6 +49,7 @@ namespace WinFormsApp1
             using (var file = File.Open(filePath, FileMode.Open))
             using (BinaryReader reader = new BinaryReader(file))
             {
+                fileName = Path.GetFileName(filePath);
                 riffChunkId = Encoding.ASCII.GetString(reader.ReadBytes(4));
                 riffChunkSize = reader.ReadInt32();
                 riffFormat = Encoding.ASCII.GetString(reader.ReadBytes(4));
@@ -185,8 +187,8 @@ namespace WinFormsApp1
                 double zcr = 0;
                 for (int j = 1; j < frameSamples; j++)
                 {
-                    double left = Math.Abs(ClipLevel.Signum(leftChannel[i + j]) - ClipLevel.Signum(leftChannel[i + j - 1]));
-                    double right = Math.Abs(ClipLevel.Signum(rightChannel[i + j]) - ClipLevel.Signum(rightChannel[i + j - 1])) / 2;
+                    double left = Math.Abs(Math.Sign(leftChannel[i + j]) - Math.Sign(leftChannel[i + j - 1]));
+                    double right = Math.Abs(Math.Sign(rightChannel[i + j]) - Math.Sign(rightChannel[i + j - 1])) / 2;
                     zcr += (left + right) / 2.0;
                 }
                 zcr *= (double)samplePerSecond / (2 * frameSamples);
@@ -233,9 +235,8 @@ namespace WinFormsApp1
             _cachedVoicedFrames = new List<(int, int)>();
             _cachedUnvoicedFrames = new List<(int, int)>();
 
-            bool inSilence = false; int startSilence = -1;
-            bool inVoiced = false; int startVoiced = -1;
-            bool inUnvoiced = false; int startUnvoiced = -1;
+            bool inSilence = false, inVoiced = false, inUnvoiced = false;
+            int startSilence = -1, startVoiced = -1, startUnvoiced = -1;
 
             for (int i = 0; i < steValues.Count; i++)
             {
@@ -267,7 +268,8 @@ namespace WinFormsApp1
                 if (isVoiced) 
                 { 
                     if (!inVoiced) 
-                    { startVoiced = i; 
+                    { 
+                        startVoiced = i; 
                         inVoiced = true; 
                     } 
                 }

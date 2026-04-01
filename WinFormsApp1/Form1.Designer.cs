@@ -40,15 +40,17 @@
             chkShowSilence = new CheckBox();
             chkVoiced = new CheckBox();
             chkUnvoiced = new CheckBox();
+            ClipLevelSaver = new Button();
+            chkSpeech = new CheckBox();
             SuspendLayout();
             // 
             // formsPlot1
             // 
             formsPlot1.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             formsPlot1.DisplayScale = 1F;
-            formsPlot1.Location = new Point(127, 8);
+            formsPlot1.Location = new Point(143, 8);
             formsPlot1.Name = "formsPlot1";
-            formsPlot1.Size = new Size(784, 453);
+            formsPlot1.Size = new Size(768, 480);
             formsPlot1.TabIndex = 3;
             // 
             // loadButton
@@ -103,7 +105,7 @@
             // 
             // funFreqButton
             // 
-            funFreqButton.Location = new Point(11, 251);
+            funFreqButton.Location = new Point(12, 251);
             funFreqButton.Margin = new Padding(2);
             funFreqButton.Name = "funFreqButton";
             funFreqButton.Size = new Size(87, 38);
@@ -168,11 +170,35 @@
             chkUnvoiced.UseVisualStyleBackColor = true;
             chkUnvoiced.CheckedChanged += chkUnvoiced_CheckedChanged;
             // 
+            // ClipLevelSaver
+            // 
+            ClipLevelSaver.ImageAlign = ContentAlignment.BottomLeft;
+            ClipLevelSaver.Location = new Point(11, 458);
+            ClipLevelSaver.Name = "ClipLevelSaver";
+            ClipLevelSaver.Size = new Size(87, 23);
+            ClipLevelSaver.TabIndex = 13;
+            ClipLevelSaver.Text = "SaveParams";
+            ClipLevelSaver.UseVisualStyleBackColor = true;
+            ClipLevelSaver.Click += ClipLevelSaver_Click;
+            // 
+            // chkSpeech
+            // 
+            chkSpeech.AutoSize = true;
+            chkSpeech.Location = new Point(11, 433);
+            chkSpeech.Name = "chkSpeech";
+            chkSpeech.Size = new Size(146, 19);
+            chkSpeech.TabIndex = 14;
+            chkSpeech.Text = "Speech/music (purple)";
+            chkSpeech.UseVisualStyleBackColor = true;
+            chkSpeech.CheckedChanged += chkSpeech_CheckedChanged;
+            // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(924, 480);
+            ClientSize = new Size(924, 500);
+            Controls.Add(chkSpeech);
+            Controls.Add(ClipLevelSaver);
             Controls.Add(chkUnvoiced);
             Controls.Add(chkVoiced);
             Controls.Add(chkShowSilence);
@@ -189,6 +215,7 @@
             Name = "Form1";
             StartPosition = FormStartPosition.CenterScreen;
             Text = "Project 1";
+            Load += Form1_Load;
             ResumeLayout(false);
             PerformLayout();
         }
@@ -207,5 +234,7 @@
         private CheckBox chkShowSilence;
         private CheckBox chkVoiced;
         private CheckBox chkUnvoiced;
+        private Button ClipLevelSaver;
+        private CheckBox chkSpeech;
     }
 }

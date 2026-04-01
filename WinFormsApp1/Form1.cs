@@ -74,6 +74,17 @@ namespace WinFormsApp1
             {
                 DrawOverlay(wavFile.GetUnvoicedFrames(), ScottPlot.Colors.Blue.WithAlpha(100));
             }
+            if(chkSpeech.Checked)
+            {
+                List<(int start, int end)> speechFrames = ClipLevel.DetectSpeech(wavFile);
+                List<(int start, int end)> silenceFrames = wavFile.GetSilenceFrames();
+                List<(int start, int end)> finalFrames = speechFrames.Intersect(silenceFrames).ToList();
+                DrawOverlay(finalFrames, ScottPlot.Colors.Cyan.WithAlpha(100));
+            }
+            if (chkShowSilence.Checked)
+            {
+                DrawOverlay(wavFile.GetSilenceFrames(), ScottPlot.Colors.Red.WithAlpha(100));
+            }
 
             formsPlot1.Refresh();
         }
@@ -258,6 +269,34 @@ namespace WinFormsApp1
         }
 
         private void chkUnvoiced_CheckedChanged(object sender, EventArgs e)
+        {
+            UpdatePlot();
+        }
+        private void ClipLevelSaver_Click(object sender, EventArgs e)
+        {
+            if (wavFile != null)
+            {
+                SaveFileDialog sfd = new SaveFileDialog();
+                sfd.FileName = $"{wavFile.fileName}_clip_level_parameters.txt";
+                sfd.Filter = "txt files (*.txt)|*.txt|All files (*.*)|*.*";
+                sfd.ShowDialog();
+                using (StreamWriter sw = new StreamWriter(sfd.FileName))
+                {
+                    sw.WriteLine($"VDR: {ClipLevel.CalculateVDR(wavFile)}");
+                    sw.WriteLine($"Volume Undulation: {ClipLevel.CalculateVolumeUndulation(wavFile)}");
+                    sw.WriteLine($"LSTER: {ClipLevel.CalculateLSTER(wavFile)}");
+                    sw.WriteLine($"Energy Entropy: {ClipLevel.CalculateEnergyEntropy(wavFile)}");
+                    sw.WriteLine($"HZCRR : {ClipLevel.CalculateHZCRR(wavFile)}");
+                }
+            }
+        }
+
+        private void Form1_Load(object sender, EventArgs e)
+        {
+
+        }
+
+        private void chkSpeech_CheckedChanged(object sender, EventArgs e)
         {
             UpdatePlot();
         }
